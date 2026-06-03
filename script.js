@@ -1,25 +1,66 @@
+const dbName = "MegaMediaDB";
+const dbVersion = 1;
+let db;
+
 const uploadForm = document.getElementById('uploadForm');
 const mediaContainer = document.getElementById('mediaContainer');
 
-// 1. TỰ ĐỘNG HIỂN THỊ CÁC FILE ĐÃ LƯU KHI MỞ TRANG WEB
-document.addEventListener('DOMContentLoaded', loadMediaFromStorage);
-
-function loadMediaFromStorage() {
-    const savedMedia = JSON.parse(localStorage.getItem('myMediaList')) || [];
-
-    if (savedMedia.length > 0) {
-        // Xóa dòng chữ thông báo trống
-        const noVideoMsg = document.querySelector('.no-video');
-        if (noVideoMsg) noVideoMsg.remove();
-
-        // Duyệt qua từng file đã lưu và hiển thị ra màn hình
-        savedMedia.forEach(item => {
-            createMediaCard(item.title, item.dataUrl, item.fileName, item.type);
-        });
-    }
+// 1. XIN QUYỀN TRÌNH DUYỆT ĐỂ LƯU FILE LỚN KHÔNG BỊ XÓA
+if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().then(granted => {
+        if (granted) {
+            console.log("Tuyệt vời! Trình duyệt đã cấp quyền lưu trữ dung lượng lớn vĩnh viễn.");
+        } else {
+            console.warn("Trình duyệt từ chối cấp quyền vĩnh viễn, việc lưu file >1GB có thể bị hạn chế tùy vào ổ cứng trống.");
+        }
+    });
 }
 
-// 2. XỬ LÝ KHI NGƯỜI DÙNG BẤM ĐĂNG FILE MỚI
+// 2. KHỞI TẠO INDEXEDDB
+const request = indexedDB.open(dbName, dbVersion);
+
+request.onupgradeneeded = function(e) {
+    db = e.target.result;
+    if (!db.objectStoreNames.contains("media")) {
+        db.createObjectStore("media", { keyPath: "id", autoIncrement: true });
+    }
+};
+
+request.onsuccess = function(e) {
+    db = e.target.result;
+    console.log("Kết nối kho lưu trữ MegaMediaDB thành công!");
+    loadMediaFromDB();
+};
+
+request.onerror = function(e) {
+    console.error("Lỗi kết nối cơ sở dữ liệu:", e.target.error);
+};
+
+// 3. TẢI VÀ HIỂN THỊ FILE TỪ BỘ NHỚ
+function loadMediaFromDB() {
+    if (!db) return;
+    
+    const transaction = db.transaction(["media"], "readonly");
+    const store = transaction.objectStore("media");
+    const requestGetAll = store.getAll();
+
+    requestGetAll.onsuccess = function() {
+        const savedMedia = requestGetAll.result;
+        if (savedMedia.length > 0) {
+            const noVideoMsg = document.querySelector('.no-video');
+            if (noVideoMsg) noVideoMsg.remove();
+
+            // Hiển thị danh sách file
+            savedMedia.forEach(item => {
+                // Tạo URL trực tiếp từ Blob gốc giúp tiết kiệm RAM bộ nhớ
+                const mediaURL = URL.createObjectURL(item.fileBlob);
+                createMediaCard(item.title, mediaURL, item.fileName, item.fileBlob.type);
+            });
+        }
+    };
+}
+
+// 4. XỬ LÝ KHI ĐĂNG FILE (TỐI ƯU CHO FILE ĐẾN 2GB)
 uploadForm.addEventListener('submit', function(e) {
     e.preventDefault(); 
 
@@ -30,85 +71,82 @@ uploadForm.addEventListener('submit', function(e) {
     const title = titleInput.value;
 
     if (file) {
-        const reader = new FileReader();
+        // Kiểm tra nếu file lớn hơn 2GB (2GB = 2 * 1024 * 1024 * 1024 bytes)
+        const maxSizeBytes = 2 * 1024 * 1024 * 1024;
+        if (file.size > maxSizeBytes) {
+            alert("File quá lớn! Trang web chỉ hỗ trợ file tối đa là 2GB.");
+            return;
+        }
 
-        // Đọc file và chuyển thành chuỗi mã hóa để lưu vào LocalStorage
-        reader.onload = function(event) {
-            const mediaDataUrl = event.target.result;
-            const fileName = file.name;
-            const fileType = file.type;
+        const noVideoMsg = document.querySelector('.no-video');
+        if (noVideoMsg) noVideoMsg.remove();
 
-            // Xóa dòng chữ thông báo trống
-            const noVideoMsg = document.querySelector('.no-video');
-            if (noVideoMsg) noVideoMsg.remove();
+        // Hiển thị ngay lập tức bằng Object URL (Không tốn RAM đọc file)
+        const tempURL = URL.createObjectURL(file);
+        createMediaCard(title, tempURL, file.name, file.type);
 
-            // Hiển thị file lên màn hình
-            createMediaCard(title, mediaDataUrl, fileName, fileType);
+        // Lưu trực tiếp vào IndexedDB
+        saveMediaToDB(title, file);
 
-            // Lưu file vào bộ nhớ LocalStorage
-            saveMediaToStorage(title, mediaDataUrl, fileName, fileType);
-
-            // Reset form nhập liệu
-            uploadForm.reset();
-        };
-
-        // Bắt đầu đọc file dưới dạng DataURL
-        reader.readAsDataURL(file);
+        // Reset form
+        uploadForm.reset();
     }
 });
 
-// 3. HÀM TẠO GIAO DIỆN HIỂN THỊ (TỰ ĐỘNG PHÂN BIỆT ẢNH VÀ VIDEO)
-function createMediaCard(title, dataUrl, fileName, fileType) {
+// 5. TẠO GIAO DIỆN HIỂN THỊ
+function createMediaCard(title, mediaUrl, fileName, fileType) {
     const mediaCard = document.createElement('div');
     mediaCard.classList.add('video-card');
 
     let mediaTag = '';
 
-    // Kiểm tra loại file để tạo thẻ HTML phù hợp
     if (fileType.startsWith('image/')) {
-        // Nếu là ảnh, dùng thẻ <img>
-        mediaTag = `<img src="${dataUrl}" alt="${title}">`;
+        mediaTag = `<img src="${mediaUrl}" alt="${title}">`;
     } else if (fileType.startsWith('video/')) {
-        // Nếu là video, dùng thẻ <video> có kèm thanh điều khiển controls
         mediaTag = `
-            <video controls>
-                <source src="${dataUrl}" type="${fileType}">
+            <video controls preload="metadata">
+                <source src="${mediaUrl}" type="${fileType}">
                 Trình duyệt của bạn không hỗ trợ xem video này.
             </video>
         `;
     } else {
-        mediaTag = `<p style="color: red;">Định dạng file không hỗ trợ hiển thị!</p>`;
+        mediaTag = `<p style="color: red;">Định dạng không hỗ trợ!</p>`;
     }
 
     mediaCard.innerHTML = `
         <h3>${title}</h3>
         ${mediaTag}
-        <a href="${dataUrl}" download="${fileName}" class="btn-download">
-            📥 Tải xuống máy
+        <a href="${mediaUrl}" download="${fileName}" class="btn-download">
+            📥 Tải xuống máy (${(fileName)})
         </a>
     `;
 
-    // Đẩy nội dung mới lên đầu danh sách hiển thị
     mediaContainer.insertBefore(mediaCard, mediaContainer.firstChild);
 }
 
-// 4. HÀM LƯU DỮ LIỆU VÀO LOCALSTORAGE
-function saveMediaToStorage(title, dataUrl, fileName, fileType) {
-    const savedMedia = JSON.parse(localStorage.getItem('myMediaList')) || [];
-    
-    // Thêm đối tượng mới vào danh sách
-    savedMedia.push({
-        title: title,
-        dataUrl: dataUrl,
-        fileName: fileName,
-        type: fileType
-    });
+// 6. GHI FILE DUNG LƯỢNG LỚN VÀO INDEXEDDB
+function saveMediaToDB(title, fileBlob) {
+    if (!db) return;
 
-    // Lưu lại vào LocalStorage dưới dạng chuỗi JSON
-    try {
-        localStorage.setItem('myMediaList', JSON.stringify(savedMedia));
-    } catch (error) {
-        alert("Bộ nhớ trình duyệt đã đầy! Vui lòng không tải file dung lượng quá lớn.");
-        console.error("LocalStorage dung lượng đã vượt quá giới hạn:", error);
-    }
+    const transaction = db.transaction(["media"], "readwrite");
+    const store = transaction.objectStore("media");
+
+    const mediaData = {
+        title: title,
+        fileBlob: fileBlob, // Lưu trực tiếp con trỏ file, trình duyệt sẽ tự tối ưu ghi vào ổ cứng
+        fileName: fileBlob.name,
+        timestamp: Date.now()
+    };
+
+    const addRequest = store.add(mediaData);
+
+    addRequest.onsuccess = function() {
+        console.log(`Đã lưu thành công file vĩnh viễn: ${fileBlob.name}`);
+    };
+
+    addRequest.onerror = function(e) {
+        console.error("Lưu file thất bại:", e.target.error);
+        alert("Không thể lưu video này! Hãy đảm bảo ổ cứng máy tính của bạn còn trống gấp đôi dung lượng file cần tải lên.");
+    };
         }
+                    
