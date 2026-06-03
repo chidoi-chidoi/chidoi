@@ -111,4 +111,4 @@ function saveMediaToStorage(title, dataUrl, fileName, fileType) {
         alert("Bộ nhớ trình duyệt đã đầy! Vui lòng không tải file dung lượng quá lớn.");
         console.error("LocalStorage dung lượng đã vượt quá giới hạn:", error);
     }
-}
+        }
