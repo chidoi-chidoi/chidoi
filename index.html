@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang Chia Sẻ & Tải Video</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1>My Video Tube</h1>
+    </header>
+
+    <div class="container">
+        <div class="upload-section">
+            <h2>Tải video của bạn lên</h2>
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label for="videoTitle">Tiêu đề video:</label>
+                    <input type="text" id="videoTitle" placeholder="Nhập tiêu đề video..." required>
+                </div>
+                <div class="form-group">
+                    <label for="videoFile">Chọn file video:</label>
+                    <input type="file" id="videoFile" accept="video/*" required>
+                </div>
+                <button type="submit" class="btn-submit">Đăng Video</button>
+            </form>
+        </div>
+
+        <div class="video-list">
+            <h2>Video mới nhất</h2>
+            <div id="videoContainer">
+                <p class="no-video">Chưa có video nào được đăng. Hãy là người đầu tiên!</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+  </html>
+
