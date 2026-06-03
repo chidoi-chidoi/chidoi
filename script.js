@@ -148,5 +148,4 @@ function saveMediaToDB(title, fileBlob) {
         console.error("Lưu file thất bại:", e.target.error);
         alert("Không thể lưu video này! Hãy đảm bảo ổ cứng máy tính của bạn còn trống gấp đôi dung lượng file cần tải lên.");
     };
-        }
-                    
+}
