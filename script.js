@@ -1,5 +1,5 @@
 // điền thông tin dự án Supabase của bạn vào đây
-const SUPABASE_URL = "https://omnmxjfodzwkjmssccvl.supabase.co/rest/v1/"; 
+const SUPABASE_URL = "https://omnmxjfodzwkjmssccvl.supabase.co"; 
 const SUPABASE_KEY = "sb_publishable_Q1HQeVw-ZQYQWvNdsqBcBg_NciCYri-";
 
 // Khởi tạo kết nối đám mây
