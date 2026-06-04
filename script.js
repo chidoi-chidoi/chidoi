@@ -1,6 +1,6 @@
-// điền thông tin dự án Supabase của bạn vào đây
+// Đã sửa lại đường dẫn URL chuẩn xác không có đuôi /rest/v1/
 const SUPABASE_URL = "https://omnmxjfodzwkjmssccvl.supabase.co"; 
-const SUPABASE_KEY = "sb_publishable_Q1HQeVw-ZQYQWvNdsqBcBg_NciCYri-";
+const SUPABASE_KEY = "sb_publishable_Q1HQeVw-ZQyQwVndsqBcBg_NciCYri-";
 
 // Khởi tạo kết nối đám mây
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -31,17 +31,19 @@ uploadForm.addEventListener('submit', async function(e) {
 
     // Đổi nút bấm thành trạng thái đang tải lên
     const submitBtn = document.querySelector('.btn-submit');
-    submitBtn.innerText = "⏳ Đang tải lên đám mây... Vui lòng đợi...";
-    submitBtn.disabled = true;
+    if (submitBtn) {
+        submitBtn.innerText = "⏳ Đang tải lên đám mây... Vui lòng đợi...";
+        submitBtn.disabled = true;
+    }
 
     // Tạo một cái tên file duy nhất trên mạng để không bị trùng
     const fileExtension = file.name.split('.').pop();
     const fileNameOnCloud = `${Date.now()}.${fileExtension}`;
 
     try {
-        // TẢI FILE THẲNG LÊN MẠNG (Không lưu vào bộ nhớ máy nữa)
+        // TẢI FILE THẲNG LÊN MẠNG
         const { data, error } = await supabase.storage
-            .from('videos') // Tên bucket bạn tạo trên Supabase
+            .from('videos') // Phải đảm bảo bạn đã tạo bucket tên là "videos" trên Supabase và bật Public
             .upload(fileNameOnCloud, file, {
                 cacheControl: '3600',
                 upsert: false
@@ -57,15 +59,17 @@ uploadForm.addEventListener('submit', async function(e) {
         // Hiển thị video lên màn hình từ đường link mạng đó
         createMediaCard(title, publicUrl, file.name, file.type);
         
-        alert("🎉 Đăng thành công video dung lượng lớn lên mạng!");
+        alert("🎉 Đăng thành công video lên đám mây!");
 
     } catch (error) {
         console.error(error);
         alert("Lỗi tải lên: " + error.message);
     } finally {
         // Trả lại trạng thái nút bấm ban đầu
-        submitBtn.innerText = "Đăng lên không gian";
-        submitBtn.disabled = false;
+        if (submitBtn) {
+            submitBtn.innerText = "Đăng lên không gian";
+            submitBtn.disabled = false;
+        }
         uploadForm.reset();
         fileSelectedName.innerText = "";
     }
