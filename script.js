@@ -11,15 +11,15 @@ const fileSelectedName = document.getElementById('fileSelectedName');
 mediaFileInput.addEventListener('change', function() {
     if (this.files && this.files[0]) {
         const file = this.files[0];
-        // Tính toán định dạng size rút gọn (MB hoặc GB)
-        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
-        fileSelectedName.innerHTML = `✅ Đã chọn: <strong>${file.name}</strong> (${fileSizeMB} MB)`;
+        // Tính toán dung lượng hiển thị (đổi từ Byte sang GB cho file lớn)
+        const fileSizeGB = (file.size / (1024 * 1024 * 1024)).toFixed(2);
+        fileSelectedName.innerHTML = `✅ Đã chọn: <strong>${file.name}</strong> (${fileSizeGB} GB)`;
     } else {
         fileSelectedName.innerText = "";
     }
 });
 
-// XIN QUYỀN LƯU TRỮ DUNG LƯỢNG LỚN VĨNH VIỄN
+// XIN QUYỀN LƯU TRỮ MỞ RỘNG TỐI ĐA
 if (navigator.storage && navigator.storage.persist) {
     navigator.storage.persist().then(granted => {
         if (granted) console.log("Hạn ngạch lưu trữ mở rộng đã sẵn sàng.");
@@ -45,7 +45,7 @@ request.onerror = function(e) {
     console.error("Lỗi kết nối cơ sở dữ liệu:", e.target.error);
 };
 
-// TẢI FILE TỪ BỘ NHỚ LÊN GIAO DIỆN KHÔNG GIAN
+// TẢI FILE TỪ BỘ NHỚ LÊN GIAO DIỆN
 function loadMediaFromDB() {
     if (!db) return;
     
@@ -59,7 +59,6 @@ function loadMediaFromDB() {
             const noVideoMsg = document.querySelector('.no-video');
             if (noVideoMsg) noVideoMsg.remove();
 
-            // Hiển thị lần lượt các file đã lưu (Đưa dữ liệu mới lên trên đầu)
             savedMedia.forEach(item => {
                 const mediaURL = URL.createObjectURL(item.fileBlob);
                 createMediaCard(item.title, mediaURL, item.fileName, item.fileBlob.type);
@@ -68,7 +67,7 @@ function loadMediaFromDB() {
     };
 }
 
-// XỬ LÝ SỰ KIỆN ĐĂNG FILE CỦA NGƯỜI DÙNG
+// XỬ LÝ SỰ KIỆN ĐĂNG FILE (ĐÃ BỎ CHẶN 2GB)
 uploadForm.addEventListener('submit', function(e) {
     e.preventDefault(); 
 
@@ -77,21 +76,16 @@ uploadForm.addEventListener('submit', function(e) {
     const title = titleInput.value;
 
     if (file) {
-        // Chặn nếu vượt định mức bảo mật dữ liệu 2GB
-        const maxSizeBytes = 2 * 1024 * 1024 * 1024;
-        if (file.size > maxSizeBytes) {
-            alert("Rất tiếc! Hệ thống chỉ xử lý file tối đa là 2GB nhằm đảm bảo an toàn hệ thống.");
-            return;
-        }
-
+        // --- ĐÃ XÓA ĐOẠN CODE KIỂM TRA VÀ CHẶN 2GB Ở ĐÂY ---
+        
         const noVideoMsg = document.querySelector('.no-video');
         if (noVideoMsg) noVideoMsg.remove();
 
-        // Tạo luồng phát trực tiếp (Stream) hiển thị tức thì không tốn bộ nhớ đệm RAM
+        // Tạo luồng phát trực tiếp hiển thị tức thì
         const tempURL = URL.createObjectURL(file);
         createMediaCard(title, tempURL, file.name, file.type);
 
-        // Đẩy file thẳng vào bộ nhớ máy
+        // Đẩy file thẳng vào bộ nhớ máy thông qua IndexedDB
         saveMediaToDB(title, file);
 
         // Làm sạch form
@@ -128,11 +122,10 @@ function createMediaCard(title, mediaUrl, fileName, fileType) {
         </a>
     `;
 
-    // Chèn phần tử mới vào vị trí cao nhất trên thanh dòng thời gian
     mediaContainer.insertBefore(mediaCard, mediaContainer.firstChild);
 }
 
-// LƯU TRỮ CHẶN ĐƠ FILE VÀO TRÌNH DUYỆT ĐÍCH
+// LƯU TRỮ VÀO INDEXEDDB
 function saveMediaToDB(title, fileBlob) {
     if (!db) return;
 
@@ -154,6 +147,6 @@ function saveMediaToDB(title, fileBlob) {
 
     addRequest.onerror = function(e) {
         console.error("Gặp lỗi trong quá trình lưu tệp tin:", e.target.error);
-        alert("Không đủ không gian trống trên thiết bị để lưu trữ dữ liệu này.");
+        alert("Không đủ không gian trống trên thiết bị để lưu trữ video dài này.");
     };
 }
